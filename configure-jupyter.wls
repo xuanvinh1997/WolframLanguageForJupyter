@@ -167,6 +167,20 @@ findJupyterPath[] :=
 		(FileType[FileNameJoin[{#1, StringJoin["jupyter", fileExt]}]] === File)&
 	];
 
+jupyterCommandPathQ[path_String] :=
+	StringMatchQ[FileNameTake[path], ("jupyter" | "jupyter-lab") ~~ ___];
+
+normalizeJupyterPath[jupyterPath_] :=
+	Module[{siblingJupyterPath},
+		If[!StringQ[jupyterPath], Return[jupyterPath]];
+		If[
+			StringMatchQ[FileNameTake[jupyterPath], "jupyter-lab" ~~ ___],
+			siblingJupyterPath = FileNameJoin[{DirectoryName[jupyterPath], StringJoin["jupyter", fileExt]}];
+			If[FileType[siblingJupyterPath] === File, siblingJupyterPath, jupyterPath],
+			jupyterPath
+		]
+	];
+
 (* get information about installed kernels in Jupyter *)
 (* returns kernel IDs in Jupyter *)
 getKernels[jupyterPath_String, processEnvironment_] := 
@@ -239,6 +253,7 @@ configureJupyter[specs_Association, removeQ_?BooleanQ, removeAllQ_?BooleanQ] :=
 			];
 			jupyterPath = FileNameJoin[{jupyterPath, StringJoin["jupyter", fileExt]}];
 		];
+		jupyterPath = normalizeJupyterPath[jupyterPath];
 
 		mathBin = 
 			Lookup[
@@ -402,10 +417,14 @@ templateWLPath = StringJoin["\"", FileNameJoin[{"", "absolute", "path", "to", "W
 helpMessage = StringJoin[
 				"configure-jupyter.wls add [", templateWLPath, "]\n",
 				"\tadds a Wolfram Engine, either attached to the current invocation, or at the provided absolute Wolfram Engine binary path, to a Jupyter binary on PATH\n",
+				"configure-jupyter.wls add ", templateJupyterPath, "\n",
+				"\tadds the current Wolfram Engine to the provided Jupyter or JupyterLab binary path\n",
 				"configure-jupyter.wls add ", templateWLPath, " ", templateJupyterPath, "\n",
 				"\tadds the provided absolute Wolfram Engine binary path to the provided Jupyter binary path\n",
 				"configure-jupyter.wls remove [", templateWLPath ,"]\n",
 				"\tremoves the Wolfram Engine, either attached to the current invocation, or at the provided absolute Wolfram Engine binary path, from a Jupyter binary on PATH\n",
+				"configure-jupyter.wls remove ", templateJupyterPath, "\n",
+				"\tremoves the current Wolfram Engine from the provided Jupyter or JupyterLab binary path\n",
 				"configure-jupyter.wls remove ", templateWLPath, " ", templateJupyterPath, "\n",
 				"\tremoves the provided absolute Wolfram Engine binary path from the provided Jupyter binary path\n",
 				"configure-jupyter.wls clear [", templateJupyterPath ,"]\n",
@@ -449,7 +468,7 @@ If[
 				"JupyterInstallation" -> $ScriptCommandLine[[4]]
 			],
 			3,
-			If[command === {True, True},
+			If[command === {True, True} || jupyterCommandPathQ[$ScriptCommandLine[[3]]],
 				Association["JupyterInstallation" -> $ScriptCommandLine[[3]]],
 				Association["WolframEngineBinary" -> $ScriptCommandLine[[3]]]
 			],

@@ -45,6 +45,29 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], "RequestHandlers.wl"}]]; (* isC
 (* begin the private context for WolframLanguageForJupyter *)
 Begin["`Private`"];
 
+getImplementationVersion[] :=
+	Module[{pacletInfoPath, pacletInfoString, pacletInfo, version},
+		version = Quiet[Check[PacletObject["WolframLanguageForJupyter"]["Version"], $Failed]];
+		If[StringQ[version], Return[version]];
+
+		pacletInfoPath = FileNameJoin[{ParentDirectory[DirectoryName[$InputFileName]], "PacletInfo.m"}];
+		pacletInfoString = Quiet[Check[Import[pacletInfoPath, "String"], $Failed]];
+		If[
+			StringQ[pacletInfoString],
+			version = StringCases[pacletInfoString, "Version" ~~ Whitespace ... ~~ "->" ~~ Whitespace ... ~~ "\"" ~~ v:Except["\""].. ~~ "\"" :> v];
+			If[Length[version] > 0, Return[First[version]]];
+		];
+
+		pacletInfo = Quiet[
+			Check[
+				Get[pacletInfoPath],
+				$Failed
+			]
+		];
+		version = Cases[Hold[pacletInfo], Verbatim[Rule][Version, v_String] :> v, Infinity];
+		If[Length[version] > 0, First[version], "unknown"]
+	];
+
 (* define the evaluation loop *)
 loop[] := 
 	Module[
@@ -76,6 +99,7 @@ loop[] :=
 				];
 				(* convert the frame into an Association *)
 				loopState["frameAssoc"] = getFrameAssoc[rawFrame];
+				loopState["ioPubReplyFrame"] = Association[];
 				(* handle this frame based on the type of request *)
 				Switch[
 					loopState["frameAssoc"]["header"]["msg_type"], 
@@ -85,10 +109,23 @@ loop[] :=
 					loopState["replyMsgType"] = "kernel_info_reply";
 					(* provide the information *)
 					loopState["replyContent"] = 
-						StringJoin[
-							"{\"protocol_version\": \"5.3.0\",\"implementation\": \"WolframLanguageForJupyter\",\"implementation_version\": \"0.0.1\",\"language_info\": {\"name\": \"Wolfram Language\",\"version\": \"12.0\",\"mimetype\": \"application/vnd.wolfram.m\",\"file_extension\": \".m\",\"pygments_lexer\": \"mathematica\",\"codemirror_mode\": \"mathematica\"},\"banner\" : \"Wolfram Language/Wolfram Engine Copyright 2019",
-							bannerWarning,
-							"\"}"
+						ExportString[
+							Association[
+								"protocol_version" -> "5.3.0",
+								"implementation" -> "WolframLanguageForJupyter",
+								"implementation_version" -> getImplementationVersion[],
+								"language_info" -> Association[
+									"name" -> "Wolfram Language",
+									"version" -> ToString[$VersionNumber],
+									"mimetype" -> "application/vnd.wolfram.m",
+									"file_extension" -> ".m",
+									"pygments_lexer" -> "mathematica",
+									"codemirror_mode" -> "mathematica"
+								],
+								"banner" -> StringJoin["Wolfram Language/Wolfram Engine Copyright ", ToString[DateValue[Today, "Year"]], bannerWarning]
+							],
+							"JSON",
+							"Compact" -> True
 						];,
 					(* if asking if the input is complete (relevant for jupyter-console), respond appropriately *)
 					"is_complete_request",

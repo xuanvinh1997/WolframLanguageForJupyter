@@ -379,7 +379,7 @@ If[
 			Infinity
 		];
 	(* start the heartbeat thread *)
-	(* Quiet[ReleaseHold[heldLocalSubmit]]; *)
+	heartbeatTask = Quiet[Check[ReleaseHold[heldLocalSubmit], $Failed]];
 
 	(* end the private context for WolframLanguageForJupyter *)
 	End[]; (* `Private`` *)

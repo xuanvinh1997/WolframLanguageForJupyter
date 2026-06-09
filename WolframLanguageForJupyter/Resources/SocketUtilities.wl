@@ -56,14 +56,18 @@ If[
 *************************************)
 
 	(* write a message frame that matches Jupyter's messaging protocols to a socket *)
-	sendFrame[socket_, frame_Association] := Module[{},
+	sendFrame[socket_, frame_Association] := Module[{identParts},
 		
 		(* see https://jupyter-client.readthedocs.io/en/stable/messaging.html for an explanation of the below *)
 		
-		socketWriteFunction[
-			socket, 
-			frame["ident"],
-			"Multipart" -> True
+		identParts = If[ListQ[frame["ident"]], frame["ident"], {frame["ident"]}];
+		Scan[
+			socketWriteFunction[
+				socket,
+				#1,
+				"Multipart" -> True
+			]&,
+			identParts
 		];
 
 		socketWriteFunction[
@@ -104,6 +108,7 @@ If[
 
 			baKey = StringToByteArray[key];
 			baMessage = StringToByteArray[message];
+			baKeyPrime = baKey;
 
 			If[Length[baKey] > blockSize,
 				baKeyPrime = Hash[baKey, method, "ByteArray"];

@@ -39,6 +39,43 @@ If[
 		frames
 *************************************)
 
+	importJSONFrame[ba_ByteArray] :=
+		Association[ImportByteArray[ba, "JSON"]];
+
+	(* transform a multipart Jupyter message frame into a structured Association *)
+	getFrameAssoc[frameParts_List] :=
+		Module[
+			{
+				frameStrings,
+				idsmsgPos,
+				header,
+				pheader,
+				metadata,
+				content
+			},
+
+			frameStrings = Quiet[ByteArrayToString /@ frameParts];
+			idsmsgPos = FirstPosition[frameStrings, "<IDS|MSG>", Missing["NotFound"]];
+			If[MissingQ[idsmsgPos], Return[$Failed]];
+			idsmsgPos = First[idsmsgPos];
+
+			If[Length[frameParts] < idsmsgPos + 5, Return[$Failed]];
+
+			{header, pheader, metadata, content} =
+				importJSONFrame /@
+					frameParts[[idsmsgPos + {2, 3, 4, 5}]];
+
+			Return[
+				Association[
+					"ident" -> frameParts[[;; idsmsgPos - 1]],
+					"header" -> header,
+					"pheader" -> pheader,
+					"metadata" -> metadata,
+					"content" -> content
+				]
+			];
+		];
+
 	(* transform received frame into a structured Association *)
 	getFrameAssoc[baFrame_ByteArray] :=
 		Module[

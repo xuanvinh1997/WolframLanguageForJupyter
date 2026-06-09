@@ -146,6 +146,17 @@ findJupyterPath[] :=
 		(FileType[FileNameJoin[{#1, StringJoin["jupyter", fileExt]}]] === File)&
 	];
 
+normalizeJupyterPath[jupyterPath_] :=
+	Module[{siblingJupyterPath},
+		If[!StringQ[jupyterPath], Return[jupyterPath]];
+		If[
+			StringMatchQ[FileNameTake[jupyterPath], "jupyter-lab" ~~ ___],
+			siblingJupyterPath = FileNameJoin[{DirectoryName[jupyterPath], StringJoin["jupyter", fileExt]}];
+			If[FileType[siblingJupyterPath] === File, siblingJupyterPath, jupyterPath],
+			jupyterPath
+		]
+	];
+
 (* get information about installed kernels in Jupyter *)
 (* returns kernel IDs in Jupyter *)
 getKernels[jupyterPath_String, processEnvironment_] := 
@@ -219,6 +230,7 @@ configureJupyter[specs_Association, removeQ_?BooleanQ, removeAllQ_?BooleanQ] :=
 			];
 			jupyterPath = FileNameJoin[{jupyterPath, StringJoin["jupyter", fileExt]}];
 		];
+		jupyterPath = normalizeJupyterPath[jupyterPath];
 
 		mathBin = 
 			Lookup[
